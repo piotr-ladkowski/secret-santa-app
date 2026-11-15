@@ -1,0 +1,47 @@
+[project]
+name = "secret-santa"
+version = "0.1.0"
+description = "Small Secret Santa web app: participants register with a group code, the organizer runs the draw and emails go out."
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.30",
+    "jinja2>=3.1",
+    "python-multipart>=0.0.9",
+    "itsdangerous>=2.2",
+    "sqlalchemy>=2.0",
+    "pydantic-settings>=2.4",
+    "email-validator>=2.2",
+    # Tracing: the image starts the app under `opentelemetry-instrument`, configured by OTEL_* env.
+    "opentelemetry-distro>=0.50b0",
+    "opentelemetry-exporter-otlp-proto-http>=1.29",
+    "opentelemetry-instrumentation-fastapi>=0.50b0",
+    "opentelemetry-instrumentation-sqlalchemy>=0.50b0",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0",
+    "httpx2",
+    "ruff>=0.6",
+    "aiosmtpd>=1.4",  # tests + a local SMTP sink for development
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/secret_santa"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+
+[tool.ruff]
+line-length = 100
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]

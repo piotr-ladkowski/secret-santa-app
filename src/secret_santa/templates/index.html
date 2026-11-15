@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="card hero">
+  <div class="hero-emoji">🎁</div>
+  <h1>Dołącz do losowania</h1>
+  <p class="muted">Wpisz kod, który przysłał organizator.</p>
+  {% if error %}<div class="flash flash-error">{{ error }}</div>{% endif %}
+  <form action="/join" method="get" class="inline-form">
+    <input name="code" aria-label="Kod grupy" placeholder="np. K7Q2XM9P" autocomplete="off"
+           autocapitalize="characters" spellcheck="false" required maxlength="40"
+           value="{{ code or '' }}" class="code-input">
+    <button type="submit">Dalej</button>
+  </form>
+</section>
+<p class="center muted small"><a href="/admin">Panel organizatora</a></p>
+{% endblock %}

@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>{% block title %}Secret Santa{% endblock %}</title>
+  {# Root-relative URLs on purpose: behind the TLS proxy the app sees plain http, and absolute
+     http:// links would be blocked as mixed content. #}
+  <link rel="stylesheet" href="/static/style.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎅</text></svg>">
+</head>
+<body>
+  <header class="site-header">
+    <div class="container header-row">
+      <a href="/" class="brand">🎅 Secret Santa</a>
+      {% block header_extra %}{% endblock %}
+    </div>
+  </header>
+  <main class="container">
+    {% for category, message in get_flashed_messages(request) %}
+      <div class="flash flash-{{ category }}" role="status">{{ message }}</div>
+    {% endfor %}
+    {% block content %}{% endblock %}
+  </main>
+  <footer class="container footer">❄️ Ho ho ho ❄️</footer>
+  <script src="/static/app.js" defer></script>
+</body>
+</html>

@@ -1,0 +1,153 @@
+{% extends "base.html" %}
+{% block title %}{{ group.name }} · Panel · Secret Santa{% endblock %}
+{% block header_extra %}{% include "admin/_header.html" %}{% endblock %}
+{% block content %}
+<section class="card">
+  <div class="title-row">
+    <h1>{{ group.name }}</h1>
+    {% if group.is_drawn %}<span class="badge badge-ok">losowanie: {{ group.drawn_at | dt }}</span>
+    {% else %}<span class="badge badge-wait">zapisy otwarte</span>{% endif %}
+  </div>
+  <p class="muted">Zapisanych osób: {{ joined }} z {{ total }}.</p>
+  <div class="progress" aria-hidden="true">
+    <span style="width: {{ (100 * joined / total) | round | int if total else 0 }}%"></span>
+  </div>
+</section>
+
+<section class="card">
+  <h2>Udostępnij</h2>
+  <p class="muted small">Wyślij ten link wszystkim uczestnikom. Każdy wybiera swoje imię i podaje e-mail.</p>
+  <div class="inline-form">
+    <input id="share-url" value="{{ share_url }}" readonly aria-label="Link do grupy">
+    <button type="button" class="secondary" data-copy="#share-url">Kopiuj</button>
+  </div>
+  <p class="small">Albo sam kod: <code class="big-code">{{ group.code }}</code></p>
+</section>
+
+<section class="card">
+  <h2>Losowanie</h2>
+  {% if not group.is_drawn %}
+    {% if ready %}
+      <p>Wszyscy są zapisani. Sprawdź adresy poniżej i uruchom losowanie. Każdy dostanie e-mail
+         z imieniem osoby, której kupuje prezent. Tego nie da się cofnąć.</p>
+      <form method="post" action="/admin/groups/{{ group.id }}/draw"
+            data-confirm="Rozlosować i wysłać e-maile do {{ total }} osób? Tego nie da się cofnąć.">
+        <button type="submit" class="big">🎲 Losuj i wyślij e-maile</button>
+      </form>
+    {% elif total < min_participants %}
+      <p class="muted">Do losowania potrzeba co najmniej {{ min_participants }} osób.</p>
+    {% else %}
+      {% set missing = total - joined %}
+      <p class="muted">Czekamy jeszcze na {{ missing }} {{ plural(missing, 'osobę', 'osoby', 'osób') }}.
+         Adres możesz też uzupełnić ręcznie poniżej (Edytuj).</p>
+      <button type="button" class="big" disabled>🎲 Losuj i wyślij e-maile</button>
+    {% endif %}
+  {% else %}
+    <p>Wysłane e-maile: <strong>{{ sent }}/{{ total }}</strong>{% if failed %}, <span class="text-error">nieudane: {{ failed }}</span>{% endif %}.
+       Kto kogo wylosował, jest tylko w e-mailach. Ta strona tego nie pokazuje.</p>
+    {% if sent < total %}
+    <form method="post" action="/admin/groups/{{ group.id }}/send">
+      <button type="submit">Wyślij niewysłane ({{ total - sent }})</button>
+    </form>
+    {% endif %}
+    <details class="reveal">
+      <summary>Chcę zobaczyć, kto kogo wylosował</summary>
+      <p class="muted small">Pokaże wszystkie pary. Jeśli też bierzesz udział, zobaczysz też, kto
+         kupuje prezent Tobie. Do pojedynczych problemów (zgubiony e-mail, spam) wystarczy
+         „Wyślij ponownie” przy danej osobie.</p>
+      <form method="post" action="/admin/groups/{{ group.id }}/reveal"
+            data-confirm="Na pewno? Zobaczysz wszystkie wylosowane pary, łącznie z tym, kto kupuje prezent Tobie.">
+        <button type="submit" class="danger">Pokaż wyniki losowania</button>
+      </form>
+    </details>
+  {% endif %}
+</section>
+
+<section class="card">
+  <h2>Uczestnicy</h2>
+  <ul class="admin-people">
+  {% for p in people %}
+    <li>
+      <div class="person-row">
+        <div class="person-main">
+          <strong>{{ p.name }}</strong>
+          <span class="muted small">{{ p.email or "brak adresu" }}</span>
+        </div>
+        <div class="person-status">
+          {% if p.email_sent_at %}
+            <span class="badge badge-ok" title="{{ p.email_sent_at | dt }}">wysłano</span>
+          {% elif p.email_error %}
+            <span class="badge badge-error" title="{{ p.email_error }}">błąd wysyłki</span>
+          {% elif group.is_drawn %}
+            <span class="badge badge-wait">nie wysłano</span>
+          {% elif p.is_registered %}
+            <span class="badge badge-ok">jest</span>
+          {% else %}
+            <span class="badge badge-wait">czekamy</span>
+          {% endif %}
+        </div>
+      </div>
+      {% if p.email_error and not p.email_sent_at %}<p class="text-error small">{{ p.email_error }}</p>{% endif %}
+      <details class="person-edit">
+        <summary>Edytuj</summary>
+        <form method="post" action="/admin/participants/{{ p.id }}/email" class="inline-form">
+          <input type="email" name="email" value="{{ p.email or '' }}" placeholder="adres e-mail" aria-label="E-mail: {{ p.name }}">
+          <button type="submit" class="secondary">Zapisz e-mail</button>
+        </form>
+        {% if group.is_drawn %}<p class="muted small">Wpisz tu adres tej osoby, nie swój: „Wyślij” wysyła jej wynik losowania na ten adres.</p>
+        {% else %}<p class="muted small">Zapisz pusty adres, żeby wypisać tę osobę (np. gdy ktoś wybrał nie swoje imię).</p>{% endif %}
+        <form method="post" action="/admin/participants/{{ p.id }}/rename" class="inline-form">
+          <input name="name" value="{{ p.name }}" required maxlength="100" aria-label="Imię">
+          <button type="submit" class="secondary">Zmień imię</button>
+        </form>
+        <div class="actions">
+          {% if group.is_drawn %}
+            <form method="post" action="/admin/participants/{{ p.id }}/send"
+                  data-confirm="Wysłać wynik losowania{% if p.email_sent_at %} ponownie{% endif %} na {{ p.email }} ({{ p.name }})?">
+              <button type="submit" class="secondary">{{ 'Wyślij ponownie' if p.email_sent_at else 'Wyślij' }}</button>
+            </form>
+          {% else %}
+            <form method="post" action="/admin/participants/{{ p.id }}/delete"
+                  data-confirm="Usunąć z grupy: {{ p.name }}?">
+              <button type="submit" class="danger">Usuń</button>
+            </form>
+          {% endif %}
+        </div>
+      </details>
+    </li>
+  {% else %}
+    <li class="muted">Nikogo tu jeszcze nie ma. Dodaj uczestników poniżej.</li>
+  {% endfor %}
+  </ul>
+
+  {% if not group.is_drawn %}
+  <form method="post" action="/admin/groups/{{ group.id }}/participants" class="stack add-people">
+    <label>Dodaj uczestników (jedno imię w linii)
+      <textarea name="names" rows="3" required></textarea>
+    </label>
+    <button type="submit" class="secondary">Dodaj</button>
+  </form>
+  {% endif %}
+</section>
+
+<section class="card">
+  <h2>Ustawienia</h2>
+  <form method="post" action="/admin/groups/{{ group.id }}/edit" class="stack">
+    <label>Nazwa grupy
+      <input name="name" value="{{ group.name }}" required maxlength="200">
+    </label>
+    <label>Wiadomość dla wszystkich <span class="muted small">(widać ją na stronie zapisów i w e-mailu)</span>
+      <textarea name="message" rows="3" maxlength="5000">{{ group.message }}</textarea>
+    </label>
+    <button type="submit" class="secondary">Zapisz</button>
+  </form>
+</section>
+
+<section class="card card-danger">
+  <h2>Strefa niebezpieczna</h2>
+  <form method="post" action="/admin/groups/{{ group.id }}/delete"
+        data-confirm="Usunąć „{{ group.name }}” razem ze wszystkimi zapisami? Tego nie da się cofnąć.">
+    <button type="submit" class="danger">Usuń grupę</button>
+  </form>
+</section>
+{% endblock %}

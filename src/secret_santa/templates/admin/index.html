@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block title %}Grupy · Secret Santa{% endblock %}
+{% block header_extra %}{% include "admin/_header.html" %}{% endblock %}
+{% block content %}
+<section class="card">
+  <h1>Twoje grupy</h1>
+  {% if rows %}
+  <ul class="group-list">
+    {% for group, joined, total in rows %}
+    <li>
+      <a href="/admin/groups/{{ group.id }}">{{ group.name }}</a>
+      <span class="muted small"><code>{{ group.code }}</code></span>
+      {% if group.is_drawn %}
+        <span class="badge badge-ok">po losowaniu</span>
+      {% else %}
+        <span class="badge {{ 'badge-ok' if joined == total and total else 'badge-wait' }}">zapisanych {{ joined }}/{{ total }}</span>
+      {% endif %}
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p class="muted">Nie masz jeszcze żadnej grupy. Utwórz ją poniżej.</p>
+  {% endif %}
+</section>
+
+<section class="card">
+  <h2>Nowa grupa</h2>
+  <form method="post" action="/admin/groups" class="stack">
+    <label>Nazwa grupy
+      <input name="name" required maxlength="200" placeholder="Rodzinne Święta 2026">
+    </label>
+    <label>Uczestnicy (jedno imię w linii)
+      <textarea name="names" rows="8" placeholder="Anna&#10;Bartek&#10;Kasia&#10;Tomek"></textarea>
+    </label>
+    <label>Wiadomość dla wszystkich <span class="muted small">(opcjonalnie: budżet, termin, miejsce; widać ją na stronie zapisów i w e-mailu)</span>
+      <textarea name="message" rows="3" maxlength="5000" placeholder="Budżet: 100 zł. Prezenty wręczamy 24 grudnia!"></textarea>
+    </label>
+    <button type="submit">Utwórz grupę</button>
+  </form>
+</section>
+
+<section class="card">
+  <h2>Wysyłka e-maili</h2>
+  <p class="muted small">Nadawca: <strong>{{ sender or "(brak SMTP_USERNAME)" }}</strong>, serwer {{ smtp_host }}.
+     Przed losowaniem wyślij sobie wiadomość testową.</p>
+  <form method="post" action="/admin/test-email" class="inline-form">
+    <input type="email" name="email" required placeholder="anna@example.com" aria-label="Adres do wiadomości testowej">
+    <button type="submit" class="secondary">Wyślij testowy e-mail</button>
+  </form>
+</section>
+{% endblock %}

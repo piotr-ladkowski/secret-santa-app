@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% block title %}{{ group.name }} · Secret Santa{% endblock %}
+{% block content %}
+<section class="card">
+  <h1>{{ group.name }}</h1>
+  {% if group.message %}<p class="message">{{ group.message }}</p>{% endif %}
+  <p class="muted">Zapisanych osób: {{ joined }} z {{ total }}.</p>
+  <div class="progress" aria-hidden="true">
+    <span style="width: {{ (100 * joined / total) | round | int if total else 0 }}%"></span>
+  </div>
+</section>
+
+{% if me %}
+<section class="card card-success">
+  <h2>Jesteś na liście, {{ me.name }}! 🎉</h2>
+  {% if group.is_drawn %}
+    <p>Losowanie już się odbyło. Wynik wysłaliśmy na <strong>{{ me.email }}</strong>.
+       Nie widzisz wiadomości? Zajrzyj do spamu albo poproś organizatora o ponowne wysłanie.</p>
+  {% else %}
+    <p>Gdy wszyscy się zapiszą, organizator przeprowadzi losowanie, a na
+       <strong>{{ me.email }}</strong> przyjdzie e-mail z imieniem osoby, której kupujesz prezent.</p>
+    <p class="muted small">Zły adres? Poproś organizatora o poprawkę.</p>
+  {% endif %}
+</section>
+{% endif %}
+
+{% if group.is_drawn %}
+  {% if not me %}
+  <section class="card">
+    <h2>Losowanie zakończone 🎁</h2>
+    <p>Wyniki poszły e-mailem do wszystkich. Sprawdź skrzynkę (i folder spam).
+       Jeśli nic nie przyszło, poproś organizatora o ponowne wysłanie.</p>
+  </section>
+  {% endif %}
+{% elif available %}
+  {% set open_form = not me or error %}
+  <section class="card">
+    <details {% if open_form %}open{% endif %} class="join-details">
+      <summary><h2>{% if me %}Zapisujesz kogoś jeszcze?{% else %}Kim jesteś?{% endif %}</h2></summary>
+      {% if error %}<div class="flash flash-error">{{ error }}</div>{% endif %}
+      <form method="post" class="stack">
+        <fieldset class="names">
+          <legend>Wybierz swoje imię</legend>
+          {% for p in available %}
+          <label class="name-option">
+            <input type="radio" name="participant_id" value="{{ p.id }}" required
+                   {% if form.participant_id == p.id %}checked{% endif %}>
+            <span>{{ p.name }}</span>
+          </label>
+          {% endfor %}
+        </fieldset>
+        <label>Twój e-mail
+          <input type="email" name="email" required maxlength="320" autocomplete="email"
+                 value="{{ form.email or '' }}" placeholder="anna@example.com">
+        </label>
+        <p class="muted small">Na ten adres przyjdzie wynik losowania. Sprawdź, czy nie ma literówki.</p>
+        <button type="submit">Zapisz się</button>
+      </form>
+    </details>
+  </section>
+{% else %}
+  <section class="card">
+    <h2>Komplet ✨</h2>
+    <p>Wszystkie imiona są zajęte. Organizator wkrótce przeprowadzi losowanie, a wynik przyjdzie e-mailem.</p>
+    {% if not me %}<p class="muted small">Ktoś zajął Twoje imię? Daj znać organizatorowi.</p>{% endif %}
+  </section>
+{% endif %}
+
+<section class="card">
+  <h2>Uczestnicy</h2>
+  <ul class="people">
+  {% for p in participants %}
+    <li class="{{ 'is-joined' if p.is_registered else 'is-waiting' }}">
+      <span>{{ p.name }}</span>
+      <span class="badge {{ 'badge-ok' if p.is_registered else 'badge-wait' }}">
+        {{ 'jest' if p.is_registered else 'czekamy' }}
+      </span>
+    </li>
+  {% endfor %}
+  </ul>
+</section>
+{% endblock %}

@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block title %}Panel organizatora · Secret Santa{% endblock %}
+{% block content %}
+<section class="card narrow">
+  <h1>Panel organizatora</h1>
+  {% if error %}<div class="flash flash-error">{{ error }}</div>{% endif %}
+  <form method="post" action="/admin/login" class="stack">
+    <label>Hasło
+      <input type="password" name="password" required autofocus autocomplete="current-password">
+    </label>
+    <button type="submit">Zaloguj</button>
+  </form>
+</section>
+{% endblock %}

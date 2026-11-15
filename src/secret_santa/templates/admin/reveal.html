@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block title %}Wyniki · {{ group.name }} · Secret Santa{% endblock %}
+{% block header_extra %}{% include "admin/_header.html" %}{% endblock %}
+{% block content %}
+<section class="card">
+  <h1>Wyniki losowania: {{ group.name }}</h1>
+  <p class="muted small">Ta strona nie ma własnego adresu: po wyjściu z niej wyniki znowu są ukryte.</p>
+  <table class="pairs">
+    <thead><tr><th>Kto</th><th>kupuje prezent dla</th></tr></thead>
+    <tbody>
+    {% for giver, receiver in pairs %}
+      <tr><td>{{ giver }}</td><td>🎁 {{ receiver }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  <p><a href="/admin/groups/{{ group.id }}">← Wróć do grupy</a></p>
+</section>
+{% endblock %}

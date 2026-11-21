@@ -15,6 +15,7 @@ from sqlalchemy.orm import Session
 from secret_santa.config import Settings
 from secret_santa.mailer import Mailer
 from secret_santa.models import Group
+from secret_santa.textfmt import linkify
 
 BASE_DIR = Path(__file__).parent
 templates = Jinja2Templates(directory=BASE_DIR / "templates")
@@ -66,6 +67,7 @@ def plural(n: int, one: str, few: str, many: str) -> str:
 templates.env.globals["get_flashed_messages"] = _pop_flashes
 templates.env.globals["plural"] = plural
 templates.env.filters["dt"] = _fmt_dt
+templates.env.filters["linkify"] = linkify
 
 
 # --- input helpers --------------------------------------------------------------------------

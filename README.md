@@ -11,7 +11,10 @@ default). The pages and emails are in Polish; the code and these docs are in Eng
 3. **Everyone** opens it, picks their own name and enters their email. A name can be claimed only
    once. You see who has joined (and their addresses) on the group page.
 4. When everyone has joined, you press **Losuj i wyślij e-maile**. Each person gets an email with the
-   name of the person they buy a gift for.
+   name of the person they buy a gift for, plus a link to their own **wish list** page.
+5. On that page (`/p/<secret token>`) each person writes what they'd like to get. The person who drew
+   them gets it by email and can always see the current version on their own page, which also
+   shows who they buy for.
 
 The draw puts everyone in one random circle (A→B→C→…→A): nobody draws themselves and, with 3+
 people, no two people simply swap gifts.
@@ -25,6 +28,25 @@ If you do want to know (after Christmas, or to sort out a mix-up), the group pag
 POST rendered with `Cache-Control: no-store`, so no URL, bookmark or back button shows the pairs
 again by accident.
 
+### Wish lists
+
+Every participant has a personal page behind a secret link. It shows their own wish list
+(editable, up to 2000 characters, shop links become clickable) and the wish list of the person they
+buy for. Saving with **Wyślij moją listę e-mailem…** ticked (the default) emails the list to the
+person who drew them.
+
+- **Groups drawn before wish lists existed** (or anyone who lost the email): on the group page,
+  **Listy życzeń** → **Wyślij linki do list życzeń (N)** sends everyone their link. Single people:
+  "Edytuj" → **Wyślij link do listy**. Participants can also ask for their link themselves on the
+  public group page: it goes only to the address they signed up with, at most once every 2
+  minutes, and the reply doesn't say whether the address is on the list.
+- **Why a secret link and not "pick your name":** the page shows who you buy for. If picking a name
+  were enough, anyone with the group code could open someone else's page. For the same reason the
+  organizer's pages never show the links or what people wrote, only counts ("Uzupełnione listy:
+  3/7") and a "lista życzeń ✓" badge.
+- **Upgrading needs no migration step.** The data lives in a new `wish_lists` table, which the app
+  creates on startup. Existing groups, sign-ups and draws are not touched.
+
 ### Keeping the results secret from yourself
 
 The app never shows or logs the pairs on its own (traces carry SQL without parameter values). They
@@ -36,11 +58,14 @@ can still reach you from outside the app:
   account just for this app that you never open. With your own account, stay out of Sent after the
   draw and don't open "Mail Delivery" messages; to find a bad address, ask who didn't get theirs.
   The emails keep the name out of the subject and the preview text, so the list view alone
-  doesn't give it away.
-- **The database** (`receiver_id` in `participants`): don't `SELECT *` from it or open a backup in a
-  DB browser. `SELECT id, name, email, email_sent_at, email_error FROM participants` is safe.
-- **Sending someone's result to yourself.** After the draw, **Wyślij** sends that person's result to
-  the address in their row. Never put your own address on someone else's row.
+  doesn't give it away. The same goes for the wish list emails: a "nowa lista życzeń" email in Sent
+  is addressed to the giver and names the receiver, and the link emails open someone's personal
+  page, which shows who they buy for.
+- **The database** (`receiver_id` in `participants`, and the tokens in `wish_lists`, which open
+  everyone's personal page): don't `SELECT *` from them or open a backup in a DB browser.
+  `SELECT id, name, email, email_sent_at, email_error FROM participants` is safe.
+- **Sending someone's result to yourself.** After the draw, **Wyślij** and **Wyślij link do listy**
+  send to the address in that person's row. Never put your own address on someone else's row.
 
 Things to know:
 

@@ -79,3 +79,22 @@ def participant_ids(client: TestClient, code: str) -> dict[str, int]:
             r'name="participant_id" value="(\d+)"[^>]*>\s*<span>([^<]+)</span>', page
         )
     }
+
+
+def register_all(client: TestClient, code: str) -> dict[str, str]:
+    emails = {}
+    for name, pid in participant_ids(client, code).items():
+        email = f"{name.lower()}@example.com"
+        r = client.post(f"/g/{code}", data={"participant_id": pid, "email": email})
+        assert r.status_code == 200, r.text
+        emails[name] = email
+    return emails
+
+
+def assignments(mailer: FakeMailer) -> dict[str, str]:
+    """{giver email: receiver name} parsed from the plain-text part of each sent email."""
+    out = {}
+    for msg in mailer.sent:
+        body = msg.get_body(("plain",)).get_content()
+        out[msg["To"].addresses[0].addr_spec] = re.search(r"dla tej osoby:\s+(.+)", body).group(1)
+    return out

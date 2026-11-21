@@ -176,6 +176,16 @@ table.pairs th, table.pairs td { padding: 8px 4px; border-bottom: 1px solid var(
 .actions form { margin: 0; }
 .add-people { margin-top: 16px; }
 
+.stack label.check { flex-direction: row; align-items: center; gap: 10px; font-weight: 400; }
+.check input { width: auto; margin: 0; flex: none; }
+.wishes {
+  white-space: pre-line; overflow-wrap: anywhere;
+  padding: 12px 14px; border-radius: 10px; background: var(--card); border: 1px solid var(--border);
+}
+.wishes a { color: var(--red); }
+.person-status { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; }
+.counter { text-align: right; margin-top: -8px; }
+
 code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
 .big-code { font-size: 1.2rem; letter-spacing: 0.15em; font-weight: 700; padding: 2px 8px; border-radius: 6px; background: var(--bg); }
 

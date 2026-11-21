@@ -9,20 +9,26 @@ from sqlalchemy import select, text, update
 from sqlalchemy.orm import Session
 
 from secret_santa.config import Settings
+from secret_santa.mailer import Mailer
 from secret_santa.models import Group, Participant, utcnow
 from secret_santa.web import (
+    base_url,
     clean_email,
+    flash,
     get_db,
+    get_mailer,
     get_settings,
     normalize_code,
     templates,
 )
+from secret_santa.wishes import recently_sent, send_links
 
 log = logging.getLogger(__name__)
 router = APIRouter()
 
 DbDep = Annotated[Session, Depends(get_db)]
 SettingsDep = Annotated[Settings, Depends(get_settings)]
+MailerDep = Annotated[Mailer, Depends(get_mailer)]
 
 
 @router.get("/healthz", include_in_schema=False)
@@ -146,4 +152,46 @@ def register(
     me = dict(request.session.get("me", {}))
     me[group.code] = participant_id
     request.session["me"] = me
+    return RedirectResponse(f"/g/{group.code}", status_code=303)
+
+
+@router.post("/g/{code}/link")
+def resend_wish_link(
+    code: str,
+    request: Request,
+    db: DbDep,
+    settings: SettingsDep,
+    mailer: MailerDep,
+    email: Annotated[str, Form(max_length=320)],
+) -> Response:
+    """Lost your wish list link? It goes again to the address you signed up with, never elsewhere.
+
+    The reply is the same whether or not the address is on the list, so the group code can't be
+    used to find out who signed up with which address.
+    """
+    group = _load_group(db, code)
+    if group is None:
+        return join_by_code(request, db, code)
+    if group.is_drawn:
+        try:
+            address = clean_email(email, check_dns=False).casefold()
+        except ValueError:
+            address = None
+        # One address can belong to several people (a parent signing up the kids).
+        people = [
+            p
+            for p in group.participants
+            if address
+            and p.email
+            and p.email.casefold() == address
+            and not recently_sent(p.wish_list)
+        ]
+        if people:
+            send_links(db, settings, mailer, base_url(request, settings), people)
+    flash(
+        request,
+        "Jeśli ten adres jest na liście tej grupy, właśnie poszedł na niego link. "
+        "Sprawdź skrzynkę (i spam).",
+        "info",
+    )
     return RedirectResponse(f"/g/{group.code}", status_code=303)

@@ -32,6 +32,19 @@
        Jeśli nic nie przyszło, poproś organizatora o ponowne wysłanie.</p>
   </section>
   {% endif %}
+  <section class="card">
+    <h2>Lista życzeń 🎁</h2>
+    <p>Pod osobistym linkiem wpiszesz, co chcesz dostać. Osoba, która Cię wylosowała, dostanie to
+       e-mailem, a Ty nadal nie dowiesz się, kto to. Zobaczysz tam też listę życzeń osoby, której
+       kupujesz prezent.</p>
+    <p class="muted small">Link przychodzi e-mailem. Nie masz go? Podaj adres, którego użyto przy
+       zapisie, a wyślemy go jeszcze raz.</p>
+    <form method="post" action="/g/{{ group.code }}/link" class="inline-form">
+      <input type="email" name="email" required maxlength="320" autocomplete="email"
+             placeholder="anna@example.com" aria-label="Twój e-mail">
+      <button type="submit">Wyślij mi link</button>
+    </form>
+  </section>
 {% elif available %}
   {% set open_form = not me or error %}
   <section class="card">

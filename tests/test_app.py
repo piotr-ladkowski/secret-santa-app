@@ -5,26 +5,7 @@ from sqlalchemy import update
 
 from secret_santa.models import Participant
 from secret_santa.web import plural
-from tests.conftest import FakeMailer, create_group, participant_ids
-
-
-def register_all(client: TestClient, code: str) -> dict[str, str]:
-    emails = {}
-    for name, pid in participant_ids(client, code).items():
-        email = f"{name.lower()}@example.com"
-        r = client.post(f"/g/{code}", data={"participant_id": pid, "email": email})
-        assert r.status_code == 200, r.text
-        emails[name] = email
-    return emails
-
-
-def assignments(mailer: FakeMailer) -> dict[str, str]:
-    """{giver email: receiver name} parsed from the plain-text part of each sent email."""
-    out = {}
-    for msg in mailer.sent:
-        body = msg.get_body(("plain",)).get_content()
-        out[msg["To"].addresses[0].addr_spec] = re.search(r"dla tej osoby:\s+(.+)", body).group(1)
-    return out
+from tests.conftest import FakeMailer, assignments, create_group, participant_ids, register_all
 
 
 def assert_no_pairs_shown(html: str) -> None:

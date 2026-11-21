@@ -63,6 +63,27 @@
   {% endif %}
 </section>
 
+{% if group.is_drawn %}
+<section class="card">
+  <h2>Listy życzeń</h2>
+  <p class="muted small">Każdy dostaje e-mailem osobisty link. Wpisuje tam, co chce dostać, a osoba,
+     która go wylosowała, dostaje to e-mailem. Na tej samej stronie każdy widzi listę osoby, której
+     kupuje prezent. Linków ani treści list nie ma w panelu, bo zdradzałyby, kto kogo wylosował.</p>
+  <p>Linki wysłane: <strong>{{ links_sent }}/{{ total }}</strong>
+     · Uzupełnione listy: <strong>{{ wishes_filled }}/{{ total }}</strong></p>
+  {% if links_sent < total %}
+    {% set unsent = total - links_sent %}
+    <form method="post" action="/admin/groups/{{ group.id }}/wish-links"
+          data-confirm="Wysłać e-mail z osobistym linkiem do listy życzeń do {{ unsent }} {{ plural(unsent, 'osoby', 'osób', 'osób') }}?">
+      <button type="submit">✉️ Wyślij linki do list życzeń ({{ unsent }})</button>
+    </form>
+  {% else %}
+    <p class="muted small">Wszyscy dostali link. Komuś zaginął? Edytuj → „Wyślij link do listy”
+       przy tej osobie (albo niech poprosi o niego sam na stronie grupy).</p>
+  {% endif %}
+</section>
+{% endif %}
+
 <section class="card">
   <h2>Uczestnicy</h2>
   <ul class="admin-people">
@@ -85,16 +106,18 @@
           {% else %}
             <span class="badge badge-wait">czekamy</span>
           {% endif %}
+          {% if p.wish_list and p.wish_list.is_filled %}<span class="badge badge-ok">lista życzeń ✓</span>{% endif %}
         </div>
       </div>
       {% if p.email_error and not p.email_sent_at %}<p class="text-error small">{{ p.email_error }}</p>{% endif %}
+      {% if p.wish_list and p.wish_list.link_error and not p.wish_list.link_sent_at %}<p class="text-error small">Link do listy życzeń: {{ p.wish_list.link_error }}</p>{% endif %}
       <details class="person-edit">
         <summary>Edytuj</summary>
         <form method="post" action="/admin/participants/{{ p.id }}/email" class="inline-form">
           <input type="email" name="email" value="{{ p.email or '' }}" placeholder="adres e-mail" aria-label="E-mail: {{ p.name }}">
           <button type="submit" class="secondary">Zapisz e-mail</button>
         </form>
-        {% if group.is_drawn %}<p class="muted small">Wpisz tu adres tej osoby, nie swój: „Wyślij” wysyła jej wynik losowania na ten adres.</p>
+        {% if group.is_drawn %}<p class="muted small">Wpisz tu adres tej osoby, nie swój: jej wynik losowania i link do listy życzeń idą na ten adres.</p>
         {% else %}<p class="muted small">Zapisz pusty adres, żeby wypisać tę osobę (np. gdy ktoś wybrał nie swoje imię).</p>{% endif %}
         <form method="post" action="/admin/participants/{{ p.id }}/rename" class="inline-form">
           <input name="name" value="{{ p.name }}" required maxlength="100" aria-label="Imię">
@@ -105,6 +128,10 @@
             <form method="post" action="/admin/participants/{{ p.id }}/send"
                   data-confirm="Wysłać wynik losowania{% if p.email_sent_at %} ponownie{% endif %} na {{ p.email }} ({{ p.name }})?">
               <button type="submit" class="secondary">{{ 'Wyślij ponownie' if p.email_sent_at else 'Wyślij' }}</button>
+            </form>
+            <form method="post" action="/admin/participants/{{ p.id }}/wish-link"
+                  data-confirm="Wysłać link do listy życzeń na {{ p.email }} ({{ p.name }})?">
+              <button type="submit" class="secondary">Wyślij link do listy</button>
             </form>
           {% else %}
             <form method="post" action="/admin/participants/{{ p.id }}/delete"

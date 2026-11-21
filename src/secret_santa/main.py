@@ -6,7 +6,7 @@ from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
 
-from secret_santa import routes_admin, routes_public
+from secret_santa import routes_admin, routes_public, routes_wishes
 from secret_santa.config import Settings, get_settings
 from secret_santa.db import Database
 from secret_santa.mailer import Mailer, SmtpMailer
@@ -35,6 +35,7 @@ def create_app(settings: Settings | None = None, mailer: Mailer | None = None) -
     )
     app.mount("/static", StaticFiles(directory=BASE_DIR / "static"), name="static")
     app.include_router(routes_public.router)
+    app.include_router(routes_wishes.router)
     app.include_router(routes_admin.auth_router)
     app.include_router(routes_admin.router)
     return app

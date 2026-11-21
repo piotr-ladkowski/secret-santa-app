@@ -61,6 +61,41 @@ class Participant(Base):
         remote_side=[id], foreign_keys=[receiver_id], post_update=True
     )
 
+    # Lives in its own table (see WishList), so this adds no column to "participants".
+    wish_list: Mapped["WishList | None"] = relationship(
+        back_populates="participant", cascade="all, delete-orphan", uselist=False
+    )
+
     @property
     def is_registered(self) -> bool:
         return self.email is not None
+
+
+class WishList(Base):
+    """A participant's personal page: a secret link, plus what they would like to get.
+
+    The token is the only way in. The page also shows who the person buys for (and that
+    person's wishes), so it must never be reachable by picking a name, and the organizer's pages
+    never show it.
+
+    A separate table rather than new columns on "participants": upgrading an existing database is
+    then just create_all() adding this table, and rows that already exist are never touched.
+    """
+
+    __tablename__ = "wish_lists"
+
+    participant_id: Mapped[int] = mapped_column(
+        ForeignKey("participants.id", ondelete="CASCADE"), primary_key=True
+    )
+    token: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    text: Mapped[str] = mapped_column(Text, default="")
+    updated_at: Mapped[datetime | None] = mapped_column(default=None)
+    # The email with the personal link (sent on request by the organizer or the participant).
+    link_sent_at: Mapped[datetime | None] = mapped_column(default=None)
+    link_error: Mapped[str | None] = mapped_column(Text, default=None)
+
+    participant: Mapped[Participant] = relationship(back_populates="wish_list")
+
+    @property
+    def is_filled(self) -> bool:
+        return bool(self.text.strip())

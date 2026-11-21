@@ -39,3 +39,11 @@ document.addEventListener("click", async (event) => {
   button.textContent = "Skopiowano!";
   setTimeout(() => (button.textContent = label), 1500);
 });
+
+// Character counter under a textarea with data-counter="#target".
+for (const area of document.querySelectorAll("textarea[data-counter]")) {
+  const out = document.querySelector(area.dataset.counter);
+  const update = () => (out.textContent = `${area.value.length} / ${area.maxLength}`);
+  area.addEventListener("input", update);
+  update();
+}

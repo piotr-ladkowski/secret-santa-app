@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}Lista życzeń · {{ group.name }} · Secret Santa{% endblock %}
+{% block content %}
+<section class="card">
+  <h1>Cześć, {{ person.name }}! 🎄</h1>
+  <p class="muted">{{ group.name }}</p>
+  {% if group.message %}<p class="message">{{ group.message }}</p>{% endif %}
+  <p class="muted small">To Twoja prywatna strona. Nie przekazuj nikomu tego linku.</p>
+</section>
+
+<section class="card">
+  <h2>Twoja lista życzeń</h2>
+  <p class="muted small">Zobaczy ją tylko osoba, która Cię wylosowała. Ty nadal nie dowiesz się, kto to.</p>
+  {% if error %}<div class="flash flash-error">{{ error }}</div>{% endif %}
+  <form method="post" class="stack">
+    <label>Co chcesz dostać?
+      <textarea name="wishes" rows="7" maxlength="{{ max_length }}" data-counter="#wish-count"
+                placeholder="np. książka, ciepłe skarpety (rozmiar 42), coś do kuchni…&#10;Czego lepiej nie kupować: …&#10;Możesz też wkleić linki do sklepów.">{{ text }}</textarea>
+    </label>
+    <p class="muted small counter" id="wish-count" aria-live="polite"></p>
+    <label class="check">
+      <input type="checkbox" name="notify" value="1" checked>
+      Wyślij moją listę e-mailem osobie, która mnie wylosowała
+    </label>
+    <button type="submit">Zapisz</button>
+  </form>
+  {% if mine.updated_at %}<p class="muted small">Ostatnia zmiana: {{ mine.updated_at | dt }}</p>{% endif %}
+</section>
+
+{% if receiver %}
+<section class="card card-success">
+  <h2>Kupujesz prezent dla: {{ receiver.name }}</h2>
+  {% if theirs and theirs.is_filled %}
+    <div class="wishes">{{ theirs.text | linkify }}</div>
+    <p class="muted small">Ostatnia zmiana: {{ theirs.updated_at | dt }}</p>
+  {% else %}
+    <p>Ta osoba nie napisała jeszcze, co chce dostać. Kiedy to zrobi, zobaczysz to tutaj,
+       a pewnie dostaniesz też e-mail.</p>
+  {% endif %}
+</section>
+{% endif %}
+{% endblock %}

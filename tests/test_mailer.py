@@ -9,7 +9,7 @@ from aiosmtpd.controller import Controller
 from aiosmtpd.handlers import Message
 
 from secret_santa.config import Settings
-from secret_santa.mailer import SmtpMailer, assignment_message
+from secret_santa.mailer import SmtpMailer, assignment_message, wish_update_message
 
 
 class Inbox(Message):
@@ -129,3 +129,21 @@ def test_drawn_name_stays_out_of_previews() -> None:
     assert preheader.lstrip().startswith('<div style="display:none') and "Bartek" not in preheader
     visible = " ".join(re.sub(r"<[^>]+>", " ", body).split())
     assert visible.index("Bartek") > 200
+
+
+def test_wish_update_keeps_the_name_out_of_previews() -> None:
+    settings = Settings(admin_password="x" * 8, secret_key="y" * 16, smtp_username="s@yahoo.com")
+    msg = wish_update_message(
+        settings,
+        group_name="Rodzina",
+        giver="Anna",
+        giver_email="anna@example.com",
+        receiver="Bartek",
+        wishes="Skarpety",
+        url="https://santa.example/p/abc",
+    )
+    assert "Bartek" not in msg["Subject"]
+    plain = msg.get_body(("plain",)).get_content()
+    assert plain.index("Bartek") > 200 and "Skarpety" in plain
+    preheader = msg.get_body(("html",)).get_content().split("</div>", 1)[0]
+    assert "Bartek" not in preheader and "Skarpety" not in preheader

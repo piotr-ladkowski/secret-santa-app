@@ -7,8 +7,7 @@ The organizer usually takes part too, so these pages never show who drew whom, e
 import hmac
 import logging
 import time
-from email.errors import MessageError
-from email.message import EmailMessage
+from functools import partial
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
@@ -19,7 +18,7 @@ from sqlalchemy.orm import Session
 
 from secret_santa.config import Settings
 from secret_santa.draw import MIN_PARTICIPANTS, draw
-from secret_santa.mailer import Mailer, assignment_message, smtp_test_message
+from secret_santa.mailer import Mailer, assignment_message, deliver, smtp_test_message
 from secret_santa.models import Group, Participant, utcnow
 from secret_santa.web import (
     base_url,
@@ -34,6 +33,7 @@ from secret_santa.web import (
     plural,
     templates,
 )
+from secret_santa.wishes import ensure_wish_list, personal_url, send_links
 
 log = logging.getLogger(__name__)
 
@@ -159,6 +159,8 @@ def group_page(group_id: int, request: Request, db: DbDep, settings: SettingsDep
             "sent": sum(p.email_sent_at is not None for p in people),
             "failed": sum(p.email_error is not None and p.email_sent_at is None for p in people),
             "share_url": f"{base_url(request, settings)}/g/{group.code}",
+            "links_sent": sum(bool(p.wish_list and p.wish_list.link_sent_at) for p in people),
+            "wishes_filled": sum(bool(p.wish_list and p.wish_list.is_filled) for p in people),
         },
     )
 
@@ -280,6 +282,9 @@ def set_email(
         # A new address means the old send no longer counts.
         person.email_sent_at = None
         person.email_error = None
+        if person.wish_list is not None:
+            person.wish_list.link_sent_at = None
+            person.wish_list.link_error = None
         db.commit()
         msg = f"Zmieniono e-mail: {person.name}."
         if person.group.is_drawn:
@@ -292,35 +297,38 @@ def set_email(
 
 
 def _send(
-    db: Session, settings: Settings, mailer: Mailer, people: list[Participant]
+    db: Session, settings: Settings, mailer: Mailer, base: str, people: list[Participant]
 ) -> tuple[int, int]:
-    """Email each person their assignment. Records the outcome per person; returns (ok, failed)."""
+    """Email each person their assignment. Records the outcome per person; returns (ok, failed).
+
+    The email also carries the person's wish list link, so after a fresh draw nobody needs a
+    separate link email.
+    """
     people = [p for p in people if p.receiver is not None and p.email]
-    errors: dict[int, str | None] = {}
-    sendable: list[tuple[Participant, EmailMessage]] = []
-    for p in people:
-        try:
-            msg = assignment_message(
+    for person in people:
+        ensure_wish_list(person)
+    db.commit()  # the tokens must exist before any email points at them
+
+    errors = deliver(
+        mailer,
+        {
+            p.id: partial(
+                assignment_message,
                 settings,
                 group_name=p.group.name,
                 group_message=p.group.message,
                 giver=p.name,
                 giver_email=p.email,
                 receiver=p.receiver.name,
+                personal_url=personal_url(base, p.wish_list),
             )
-        except (ValueError, MessageError) as exc:
-            # e.g. an address the email library refuses; must not block everyone else's email.
-            errors[p.id] = f"Błędny adres: {exc}"
-        else:
-            sendable.append((p, msg))
-    if sendable:
-        results = mailer.send_many([msg for _, msg in sendable])
-        errors.update((p.id, err) for (p, _), err in zip(sendable, results, strict=True))
-
+            for p in people
+        },
+    )
     for person in people:
         if errors[person.id] is None:
-            person.email_sent_at = utcnow()
-            person.email_error = None
+            person.email_sent_at = person.wish_list.link_sent_at = utcnow()
+            person.email_error = person.wish_list.link_error = None
         else:
             person.email_error = errors[person.id]
     db.commit()
@@ -381,7 +389,7 @@ def run_draw(
     db.commit()
     log.info("draw done: group=%s participants=%s", group_id, len(people))
 
-    ok, failed = _send(db, settings, mailer, people)
+    ok, failed = _send(db, settings, mailer, base_url(request, settings), people)
     _flash_send_result(request, ok, failed)
     return _back(group_id)
 
@@ -396,7 +404,7 @@ def send_unsent(
     if not group.is_drawn or not pending:
         flash(request, "Nie ma nic do wysłania.", "info")
         return _back(group_id)
-    _flash_send_result(request, *_send(db, settings, mailer, pending))
+    _flash_send_result(request, *_send(db, settings, mailer, base_url(request, settings), pending))
     return _back(group_id)
 
 
@@ -413,11 +421,55 @@ def send_one(
     if not person.group.is_drawn:
         flash(request, "Najpierw przeprowadź losowanie.", "error")
         return _back(person.group_id)
-    ok, _ = _send(db, settings, mailer, [person])
+    ok, _ = _send(db, settings, mailer, base_url(request, settings), [person])
     if ok:
         flash(request, f"Wysłano wynik losowania: {person.name} ({person.email}).", "success")
     else:
         flash(request, f"Błąd wysyłki ({person.name}): {person.email_error}", "error")
+    return _back(person.group_id)
+
+
+# --- wish lists -------------------------------------------------------------------------------
+
+
+@router.post("/groups/{group_id}/wish-links")
+def send_wish_links(
+    group_id: int, request: Request, db: DbDep, settings: SettingsDep, mailer: MailerDep
+) -> Response:
+    """Email everyone who hasn't got it yet their personal wish list link."""
+    group = _get_group(db, group_id)
+    if not group.is_drawn:
+        flash(request, "Najpierw przeprowadź losowanie.", "error")
+        return _back(group_id)
+    pending = [
+        p for p in group.participants if p.email and not (p.wish_list and p.wish_list.link_sent_at)
+    ]
+    if not pending:
+        flash(request, "Wszyscy mają już link.", "info")
+        return _back(group_id)
+    _flash_send_result(
+        request, *send_links(db, settings, mailer, base_url(request, settings), pending)
+    )
+    return _back(group_id)
+
+
+@router.post("/participants/{participant_id}/wish-link")
+def send_wish_link(
+    participant_id: int,
+    request: Request,
+    db: DbDep,
+    settings: SettingsDep,
+    mailer: MailerDep,
+) -> Response:
+    person = _get_participant(db, participant_id)
+    if not person.group.is_drawn:
+        flash(request, "Najpierw przeprowadź losowanie.", "error")
+        return _back(person.group_id)
+    ok, _ = send_links(db, settings, mailer, base_url(request, settings), [person])
+    if ok:
+        flash(request, f"Wysłano link do listy życzeń: {person.name} ({person.email}).", "success")
+    else:
+        flash(request, f"Błąd wysyłki ({person.name}): {person.wish_list.link_error}", "error")
     return _back(person.group_id)
 
 
